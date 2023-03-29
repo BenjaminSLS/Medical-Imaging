@@ -25,10 +25,13 @@
 -   cancer_history
     -   If the patient has a history of cancer
 -   has_piped_water
-
+    - Whether or not the patient has access to piped water 
 -   has_sewage_system
+    - If the patient has a sewage system
 -   fitspatrick
+    - 
 -   region
+    - Which region the patient is from
 -   diameter_1
 -   diameter_2
 -   diagnostic
