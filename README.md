@@ -29,7 +29,7 @@
 -   has_sewage_system
     - If the patient has a sewage system
 -   fitspatrick
-    - 
+    - idk
 -   region
     - Which region the patient is from
 -   diameter_1
