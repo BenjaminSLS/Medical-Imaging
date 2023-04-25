@@ -7,8 +7,6 @@ from skimage.color import rgb2gray
 os.chdir("..")
 os.chdir("..")
 
-
-
 #Code
 directory = "segmentation/masks"
 for filename in os.listdir(directory):
