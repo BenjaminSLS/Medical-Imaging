@@ -1,5 +1,9 @@
 # Medical Imaging - Group 5
 
+# Features
+
+-   Color
+
 ## Dataset
 
 -   patient_id
@@ -58,4 +62,5 @@
     -   If it extrudes from the skin
 -   img_id
     -   The id of the image
--   biopsed
+-   bio
+    psed
