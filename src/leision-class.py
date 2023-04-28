@@ -25,7 +25,7 @@ class Lesion:
     
 
 
-    def resize_center(self, buffer : int = 0):
+    def resize_center(self, buffer : int = 0): # This code will give a wrong image if there is more than 1 single lesion, so either we need to change it or make a new function for multiple lesions
         '''
         Resize the image by scanning for white pixels and cropping the image to the smallest possible size
         '''
