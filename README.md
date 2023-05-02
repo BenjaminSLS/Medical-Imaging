@@ -1,5 +1,27 @@
 # Medical Imaging - Group 5
 
+# Project Status
+
+**Code**
+
+-   [x] Compactness
+-   [x] Asymmetry
+-   [ ] Fix the center function, so it can support multiple images and lesion types
+-   [ ] Make color extraction correctly account for blue
+-   [ ] SLIC thing and the formula on messenger
+-   [ ] Make code that writes all data onto the metadata.csv
+-   [ ] Make sure the code can run her evaluation script
+-   [ ] Clean up github repo and the code
+-   [ ] Make model
+
+**Report**
+
+-   [x] Introduction
+-   [ ] ?
+-   [ ] ?
+-   [ ] ?
+-   [ ] Spell check the report
+
 # Features
 
 -   Color

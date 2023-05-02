@@ -1,35 +1,44 @@
 from matplotlib import pyplot as plt
 import numpy as np
-from numpy import int64, ndarray as NDArray, float64,generic
-from typing import Any
+from numpy import int64
 from skimage import morphology
 from scipy.ndimage import rotate
 from skimage.segmentation import slic,mark_boundaries
+from skimage import feature
 
 imagesPath = "../data/images/images/"
 
 class Lesion:
     lesion_id : str
-    path : str
     mask_source : any
+    image_source : any
     mask: any
     top : int
     bottom : int
     left : int
     right : int
+    image : any
+    image_path : str
+    mask_path : str
+    filtered_img : any
+    filtered_skin : any
     
     
 
-    def __init__(self, id: str, mask:any, path: str) -> None:
-        self.lesion_id = id
-        self.path = path
-        self.mask = mask
-        self.mask_source = mask
-        self.image = path.split("/")[-1].replace(".npy",".png") #Split mask path by / then remove .npy and replace with .jpg
-
-   
-
-
+    def __init__(self, image_path) -> None:
+        image_name_split = image_path.split("_")
+        self.lesion_id = image_name_split[1]
+        self.mask_path = "../segmentation/masks/" + image_path + "_mask.npy"
+        self.image_path = "../data/images/images/" + image_path + ".png"
+        
+        try:
+            self.mask = np.load(self.mask_path)
+            self.mask[self.mask > 0] = 1
+            self.image = plt.imread(self.image_path)
+        except:
+            print("Could not load image or mask")
+            return None
+            
     def resize_center(self, buffer : int = 0): # This code will give a wrong image if there is more than 1 single lesion, so either we need to change it or make a new function for multiple lesions
         '''
         Resize the image by scanning for white pixels and cropping the image to the smallest possible size
@@ -76,11 +85,13 @@ class Lesion:
         print(f'Top {self.top} Bottom {self.bottom} Left {self.left} Right {self.right}')
   
         self.mask_source = self.mask
+        self.image_source = self.image
        
         # Resize the mask
         self.mask = self.mask[top:bottom, left:right]
+        self.image = self.image[top:bottom,left:right]
 
-        return self.mask
+        return self.mask, self.image
 
     def get_asymmetry_feature(self):
         """
@@ -162,40 +173,105 @@ class Lesion:
     
         return perimeter
     
-    def apply_mask_to_img(self, img,):
+
+    def get_average_skin_color(self):
+        pass
+        
+    
+    
+    def apply_mask_to_img(self):
         """
-        Applies the mask to the image and returns the resulting image.
+        Applies the mask to the image
         """
-        mask= self.mask
+        #For resized images
+        filtered_img = self.image.copy()
+        filtered_img[self.mask==0] = [0,0,0,255]
+        filtered_skin = self.image.copy()
+        filtered_skin[self.mask==1] = [0,0,0,255]
 
-        filtered_img = img.copy()
-        filtered_img[mask==0] = 0
+        #For original images
+        filtered_source_img = self.image_source.copy()
+        filtered_source_img[self.mask_source==0] = [0,0,0,255]
+        filtered_source_skin = self.image_source.copy()
+        filtered_source_skin[self.mask_source==1] = [0,0,0,255]
 
-        return filtered_img
+        self.filtered_source_img = filtered_source_img
+        self.filtered_source_skin = filtered_source_skin
+        self.filtered_img = filtered_img
+        self.filtered_skin = filtered_skin
 
 
-    def get_color_feature(self,img):
+    def average_skin_color(self):
+        """
+        Finds the average skin color for each of the 3 color channels and returns the average as a tuple
+        """
+
+        # Filter out the blue colors
+        self.filtered_source_skin[(self.filtered_source_skin[:,:,2]>self.filtered_source_skin[:,:,0]) & (self.filtered_source_skin[:,:,2]>self.filtered_source_skin[:,:,1])] = 0
+        
+        
+        fig,axs = plt.subplots(1,1,figsize=(9,9))
+        axs.imshow(self.filtered_source_skin)
+        plt.show()
+        plt.savefig("filtered_skin.png")
+
+        #Calculate the area of the skin
+        h,b = self.mask_source.shape
+        total_pixel = h*b
+        total_pixel_skin = total_pixel - np.sum(self.mask_source)
+      
+        # Finds the average skin color for each channel
+        avg_r = np.sum(self.filtered_source_skin[:,:,0])/total_pixel_skin
+        avg_g = np.sum(self.filtered_source_skin[:,:,1])/total_pixel_skin
+        avg_b = np.sum(self.filtered_source_skin[:,:,2])/total_pixel_skin
+
+        return (avg_r,avg_g,avg_b)
+
+        
+
+    def get_color_feature(self):
         """
         Returns the color features of the lesion using SLIC
 
         Uses imports skimage.segmentention.slic and skimage.segmentention.mark_boundaries
-        """
+        to segment the image and mark the boundaries of the segments
 
-        filtered_img = self.apply_mask_to_img(img)
+        Then we find the average of each of the segments
+        """
+        # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3184884/ color extraction idea
+        # https://biomedpharmajournal.org/vol12no1/melanoma-detection-in-dermoscopic-images-using-color-features/ another idea
+        # 
+
+        filtered_img = self.filtered_img
         # Segments the image using SLIC
         segments_slic = slic(filtered_img, n_segments=10, compactness=3, sigma=3,start_label=1)
+        feat_im = feature.multiscale_basic_features(
+            filtered_img,
+            channel_axis=2,
+            intensity = False, 
+            edges = True, 
+            texture = True,
+            sigma_min = 3,
+            sigma_max = 3
+            )
+        fig,axs = plt.subplots(3,3,figsize=(10,10))
+
+        for i,ax in enumerate(axs.ravel()):
+            ax.imshow(feat_im[:,:,i],cmap="gray")
+
+        plt.show()
+        plt.savefig("feature.png")
+        print("hej")
         #NOT FINISHED
-
-
 
     def __str__(self) -> str:
         return f'{self.path}'
 
 def main():
     #Circular lesion
-    mask = np.load("../segmentation/masks/PAT_860_1641_998_mask.npy")
-    mask[mask > 0] = 1
-    lesion = Lesion(id="",mask=mask,path="")
+ 
+    
+    lesion = Lesion("PAT_860_1641_998")
     np.savetxt("before.txt",lesion.mask,fmt="%d")
     lesion.resize_center(buffer=10)
     np.savetxt("mask.txt",lesion.mask,fmt="%d")
@@ -207,36 +283,25 @@ def main():
 
     #Oval lesion
     print("\nOval lesion \n")
-    mask = np.load("../segmentation/masks/PAT_1257_887_828_mask.npy")
-    mask[mask > 0] = 1
-    lesion = Lesion(id="",mask=mask,path="")
+
+    lesion = Lesion("PAT_1257_887_828")
     lesion.resize_center(buffer=10)
     print("Asymmetry: ",lesion.get_asymmetry_feature())
     print("Asymmetry 2: ", lesion.get_rotation_asymmetry())
     print("Compactness: ",lesion.get_compactness())
+
+
+    print("\nColor feature \n")
+  
+    lesion = Lesion("PAT_599_1140_399")
+    lesion.resize_center()
+    lesion.apply_mask_to_img()
+    print(lesion.average_skin_color())
     
-    #Perfect cicle
-    print("\nPerfect circle \n")
-    mask = perfect_circle()
-    mask[mask > 0] = 1
-    lesion = Lesion(id="",mask=mask,path="")
-    lesion.resize_center(buffer=0)
-    print("Asymmetry: ",lesion.get_asymmetry_feature())
-    print("Asymmetry 2: ", lesion.get_rotation_asymmetry())
-    print("Compactness: ",lesion.get_compactness())
-    
-    #Perfect box
-    print("\nPerfect box \n")
-    mask = perfect_box()
-    mask[mask > 0] = 1
-    lesion = Lesion(id="",mask=mask,path="")
-    print("Asymmetry: ",lesion.get_asymmetry_feature())
-    print("Asymmetry 2: ", lesion.get_rotation_asymmetry()) # works incorrect here 
-    print("Compactness: ",lesion.get_compactness())
     
 
 
-# TESTING FUNCTIONS
+# TESTING FUNCTIONS DELETE AFTER
 
 def perfect_circle():
     #Function that makes perfect circle as np.array
