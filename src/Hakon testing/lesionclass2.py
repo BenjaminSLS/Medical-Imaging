@@ -18,17 +18,21 @@ class Lesion:
     
     
 
-    def __init__(self, id: str, mask:any, path: str) -> None:
-        self.lesion_id = id
-        self.path = path
-        self.mask = mask
-        self.mask_source = mask
-        self.image = path.split("/")[-1].replace(".npy",".png") #Split mask path by / then remove .npy and replace with .jpg
+    def __init__(self, image_name) -> None:
+        image_name_split = image_name.split("_")
+        self.lesion_id = image_name_split[1]
+        self.mask_path = "../../segmentation/masks/" + image_name + "_mask.npy"
+        self.mask = np.load(self.mask_path)
+        self.image_path = "../../data/images/images/" + image_name + ".png"
+        self.image = plt.imread(self.image_path)
 
 
-    def resize_center(self, buffer : int = 0): # This code will give a wrong image if there is more than 1 single lesion, so either we need to change it or make a new function for multiple lesions
+    def resize_center(self, buffer : int = 0): 
+        # This code will give a wrong image if there is more than 1 single lesion, 
+        # so either we need to change it or make a new function for multiple lesions
         '''
         Resize the image by scanning for white pixels and cropping the image to the smallest possible size
+        Returns the resized mask and image
         '''
         
         row_n,col_n=self.mask.shape
@@ -70,24 +74,24 @@ class Lesion:
         self.right = right + buffer if right + buffer < col_n else col_n
 
         print(f'Top {self.top} Bottom {self.bottom} Left {self.left} Right {self.right}')
-  
+
+
+        #Save original image and mask
         self.mask_source = self.mask
-       
-        # Resize the mask
+        self.image_source = self.image
+
+        # Resize the mask and image
         self.mask = self.mask[top:bottom, left:right]
+        self.image = self.image[top:bottom, left:right]
 
-        return self.mask
+        return self.mask, self.image
 
-    def get_asymmetry_feature(self,mask_in= None):
+    def get_asymmetry_feature(self):
         """
         Find asymmetric index of mask by folding horizontally and vertically
         """
-        mask : any
-        if mask_in is None:
-            mask =self.mask
-        else:
-            mask = mask_in
 
+        mask = self.mask
 
         horizontal_flip = np.fliplr(mask)
     
@@ -97,7 +101,6 @@ class Lesion:
         diff_vertical_flip = mask - vertical_flip
 
     
-        
         diff_horizontal_area = np.count_nonzero(diff_horizontal_flip)
         diff_vertical_area = np.count_nonzero(diff_vertical_flip)
 
@@ -118,16 +121,12 @@ class Lesion:
         
         return self.get_asymmetry_feature(rotated_mask)
 
-    def get_compactness(self,mask_in = None):
+    def get_compactness(self):
         """
         Returns the compactness of the lesion
         """
         
-        mask : any
-        if mask_in is None:
-            mask =self.mask
-        else:
-            mask = mask_in
+        mask = self.mask
 
         
         #Gets the area and perimeter of the lesion using functions _get_area and _get_perimeter
@@ -143,24 +142,14 @@ class Lesion:
     def _get_area(self,mask_in = None) -> int:
         '''
         Returns the area of the mask
-        '''
-        mask :any
-        if mask_in is None:
-            mask =  self.mask
-        else:
-            mask = mask_in
-            
-        return np.sum(mask)
+        '''            
+        return np.sum(self.mask)
     
     def _get_perimeter(self, erosion_size : int = 1,mask_in=None):
         """
         Returns the perimeter of the mask
         """
-        mask :any
-        if mask_in is None:
-            mask =  self.mask
-        else:
-            mask = mask_in
+        mask = self.mask
         # Defines a disk brush of size erosion_size
         struct_el = morphology.disk(erosion_size)
 
@@ -175,19 +164,18 @@ class Lesion:
     
         return perimeter
     
-    def apply_mask_to_img(self, img, mask_in = None):
+    def apply_mask_to_img(self):
         """
         Applies the mask to the image and returns the resulting image.
         """
-        mask :any
-
-        if mask_in is None:
-            mask =  self.mask
-        else:
-            mask = mask_in
+ 
+        mask =  self.mask
+        img = self.image
 
         filtered_img = img.copy()
         filtered_img[mask==0] = 0
+
+        self.filtered_img = filtered_img
 
         return filtered_img
 
@@ -199,82 +187,21 @@ class Lesion:
         Uses imports skimage.segmentention.slic and skimage.segmentention.mark_boundaries
         """
 
-        filtered_img = self.apply_mask_to_img(img)
+        filtered_img = self.filtered_img
         # Segments the image using SLIC
         segments_slic = slic(filtered_img, n_segments=10, compactness=3, sigma=3,start_label=1)
+        
         #NOT FINISHED
-
-
 
     def __str__(self) -> str:
         return f'{self.path}'
+    
 
 def main():
-    #Circular lesion
-    mask = np.load("../segmentation/masks/PAT_860_1641_998_mask.npy")
-    mask[mask > 0] = 1
-    lesion = Lesion(id="",mask=mask,path="")
-    np.savetxt("before.txt",lesion.mask,fmt="%d")
-    lesion.resize_center(buffer=10)
-    np.savetxt("mask.txt",lesion.mask,fmt="%d")
-    print("Circle lesion \n")
-    print("Asymmetry: ",lesion.get_asymmetry_feature())
-    print("Asymmetry 2: ", lesion.get_rotation_asymmetry())
-    print("Compactness: ",lesion.get_compactness())
-    print("Image: ", lesion.image)
-
-    #Oval lesion
-    print("\nOval lesion \n")
-    mask = np.load("../segmentation/masks/PAT_1257_887_828_mask.npy")
-    mask[mask > 0] = 1
-    lesion = Lesion(id="",mask=mask,path="")
-    lesion.resize_center(buffer=10)
-    print("Asymmetry: ",lesion.get_asymmetry_feature())
-    print("Asymmetry 2: ", lesion.get_rotation_asymmetry())
-    print("Compactness: ",lesion.get_compactness())
-    
-    #Perfect cicle
-    print("\nPerfect circle \n")
-    mask = perfect_circle()
-    mask[mask > 0] = 1
-    lesion = Lesion(id="",mask=mask,path="")
-    lesion.resize_center(buffer=0)
-    print("Asymmetry: ",lesion.get_asymmetry_feature())
-    print("Asymmetry 2: ", lesion.get_rotation_asymmetry())
-    print("Compactness: ",lesion.get_compactness())
-    
-    #Perfect box
-    print("\nPerfect box \n")
-    mask = perfect_box()
-    mask[mask > 0] = 1
-    lesion = Lesion(id="",mask=mask,path="")
-    print("Asymmetry: ",lesion.get_asymmetry_feature())
-    print("Asymmetry 2: ", lesion.get_rotation_asymmetry()) # works incorrect here 
-    print("Compactness: ",lesion.get_compactness())
-    
-
-
-# TESTING FUNCTIONS
-
-def perfect_circle():
-    #Function that makes perfect circle as np.array
-    #Returns the circle as np.array
-    circle = np.zeros((1000,1000),dtype=int64)
-    for i in range(1000):
-        for j in range(1000):
-            if (i-50)**2+(j-50)**2 <= 50**2:
-                circle[i,j] = 1
-    return circle.astype(int64)
-
-def perfect_box():
-    #Function that makes perfect box as np.array
-    #Returns the box as np.array with 1's 
-    box = np.zeros((100,100),dtype=int64)
-    for i in range(1,98):
-        for j in range(1,98):
-            box[i,j] = 1
-    return box
-    
+    lesion = Lesion("PAT_70_107_155")
+    print(lesion.mask_path)
+    print(lesion.image_path)
+    pass
   
 if __name__ == '__main__':
     main()
