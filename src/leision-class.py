@@ -6,6 +6,8 @@ from skimage import morphology
 from scipy.ndimage import rotate
 from skimage.segmentation import slic,mark_boundaries
 
+imagesPath = "../data/images/images/"
+
 class Lesion:
     lesion_id : str
     path : str
@@ -24,6 +26,8 @@ class Lesion:
         self.mask = mask
         self.mask_source = mask
         self.image = path.split("/")[-1].replace(".npy",".png") #Split mask path by / then remove .npy and replace with .jpg
+
+   
 
 
     def resize_center(self, buffer : int = 0): # This code will give a wrong image if there is more than 1 single lesion, so either we need to change it or make a new function for multiple lesions
@@ -78,17 +82,11 @@ class Lesion:
 
         return self.mask
 
-    def get_asymmetry_feature(self,mask_in= None):
+    def get_asymmetry_feature(self):
         """
         Find asymmetric index of mask by folding horizontally and vertically
         """
-        mask : any
-        if mask_in is None:
-            mask =self.mask
-        else:
-            mask = mask_in
-
-
+        mask = self.mask
         horizontal_flip = np.fliplr(mask)
     
         diff_horizontal_flip = mask - horizontal_flip 
@@ -112,23 +110,22 @@ class Lesion:
         """
         Returns the rotation asymmetry of the lesion
         """
-
+        mask = self.mask
         #Rotates the mask by 45 degrees
-        rotated_mask = rotate(self.mask,angle=45)
-        
-        return self.get_asymmetry_feature(rotated_mask)
+        rotated_mask = rotate(mask,angle=45)
+        temp = self.mask
 
-    def get_compactness(self,mask_in = None):
+        self.mask = rotated_mask
+        assymetry = self.get_asymmetry_feature()
+
+        self.mask = temp
+        
+        return  assymetry
+
+    def get_compactness(self):
         """
         Returns the compactness of the lesion
         """
-        
-        mask : any
-        if mask_in is None:
-            mask =self.mask
-        else:
-            mask = mask_in
-
         
         #Gets the area and perimeter of the lesion using functions _get_area and _get_perimeter
         area = self._get_area()
@@ -140,27 +137,17 @@ class Lesion:
                       
         return compactness
     
-    def _get_area(self,mask_in = None) -> int:
+    def _get_area(self) -> int:
         '''
         Returns the area of the mask
         '''
-        mask :any
-        if mask_in is None:
-            mask =  self.mask
-        else:
-            mask = mask_in
-            
-        return np.sum(mask)
+        return np.sum(self.mask)
     
-    def _get_perimeter(self, erosion_size : int = 1,mask_in=None):
+    def _get_perimeter(self, erosion_size : int = 1):
         """
         Returns the perimeter of the mask
         """
-        mask :any
-        if mask_in is None:
-            mask =  self.mask
-        else:
-            mask = mask_in
+        mask = self.mask
         # Defines a disk brush of size erosion_size
         struct_el = morphology.disk(erosion_size)
 
@@ -175,16 +162,11 @@ class Lesion:
     
         return perimeter
     
-    def apply_mask_to_img(self, img, mask_in = None):
+    def apply_mask_to_img(self, img,):
         """
         Applies the mask to the image and returns the resulting image.
         """
-        mask :any
-
-        if mask_in is None:
-            mask =  self.mask
-        else:
-            mask = mask_in
+        mask= self.mask
 
         filtered_img = img.copy()
         filtered_img[mask==0] = 0

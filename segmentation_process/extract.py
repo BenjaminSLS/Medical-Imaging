@@ -6,21 +6,24 @@ import shutil
 def main():
 
     anns  =[]
-    with open('piotrinfo.json') as f:
+    with open('Piotr_lesions.json') as f:
         data = json.load(f)
     for item in data:
         anns.append(Annotation(item['id'], item["annotations"][0]["id"], item["file_upload"].split("-")[-1]))
   
     for ann in anns:
         # copy file to new folder with another name
-        shutil.copyfile(f'./piotrmasks/{ann.get_annotation()}', f'./masks/{ann.filename}_mask.npy')
-
+        try:
+            shutil.copyfile(f'./Piotr_lesions/{ann.get_annotation()}', f'./masks/{ann.filename}_mask.npy')
+        except:
+            print("File not found: ", ann.get_annotation())
+            continue
 
 
 class Annotation:
     main_id = ""
     second_id = ""
-    brush_name="Leasions"
+    brush_name="lesion"
     filename = ""
 
     def __init__(self, main_id, second_id, filename):
