@@ -5,6 +5,7 @@ from typing import Any
 from skimage import morphology
 from scipy.ndimage import rotate
 from skimage.segmentation import slic,mark_boundaries
+from skimage import feature
 
 class Lesion:
     lesion_id : str
@@ -36,7 +37,8 @@ class Lesion:
         '''
         
         row_n,col_n=self.mask.shape
-        
+        print("row: ", row_n,"\ncol: ",col_n)
+
         left = -1
         right = -1
         top = -1
@@ -166,7 +168,7 @@ class Lesion:
     
     def apply_mask_to_img(self):
         """
-        Applies the mask to the image and returns the resulting image.
+        Applies the mask to the image
         """
  
         mask =  self.mask
@@ -174,23 +176,45 @@ class Lesion:
 
         filtered_img = img.copy()
         filtered_img[mask==0] = 0
+        filtered_skin = img.copy()
+        filtered_skin[mask==1] = 0
 
         self.filtered_img = filtered_img
+        self.filtered_skin = filtered_skin
 
-        return filtered_img
-
-
-    def get_color_feature(self,img):
+    def get_color_feature(self):
         """
         Returns the color features of the lesion using SLIC
 
         Uses imports skimage.segmentention.slic and skimage.segmentention.mark_boundaries
+        to segment the image and mark the boundaries of the segments
+
+        Then we find the average of each of the segments
         """
+        # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3184884/ color extraction idea
+        # https://biomedpharmajournal.org/vol12no1/melanoma-detection-in-dermoscopic-images-using-color-features/ another idea
+        # 
 
         filtered_img = self.filtered_img
         # Segments the image using SLIC
         segments_slic = slic(filtered_img, n_segments=10, compactness=3, sigma=3,start_label=1)
-        
+        feat_im = feature.multiscale_basic_features(
+            filtered_img,
+            channel_axis=2,
+            intensity = False, 
+            edges = True, 
+            texture = True,
+            sigma_min = 3,
+            sigma_max = 3
+            )
+        fig,axs = plt.subplots(3,3,figsize=(10,10))
+
+        for i,ax in enumerate(axs.ravel()):
+            ax.imshow(feat_im[:,:,i],cmap="gray")
+
+        plt.show()
+        plt.savefig("feature.png")
+        print("hej")
         #NOT FINISHED
 
     def __str__(self) -> str:
@@ -201,7 +225,9 @@ def main():
     lesion = Lesion("PAT_70_107_155")
     print(lesion.mask_path)
     print(lesion.image_path)
-    pass
+    lesion.resize_center(buffer=5)
+    lesion.apply_mask_to_img()
+    lesion.get_color_feature()
   
 if __name__ == '__main__':
     main()
