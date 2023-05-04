@@ -141,7 +141,7 @@ class Lesion:
                       
         return compactness
     
-    def _get_area(self,mask_in = None) -> int:
+    def _get_area(self) -> int:
         '''
         Returns the area of the mask
         '''            

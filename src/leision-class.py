@@ -173,12 +173,6 @@ class Lesion:
     
         return perimeter
     
-
-    def get_average_skin_color(self):
-        pass
-        
-    
-    
     def apply_mask_to_img(self):
         """
         Applies the mask to the image
@@ -201,25 +195,29 @@ class Lesion:
         self.filtered_skin = filtered_skin
 
 
-    def average_skin_color(self):
+    def get_average_skin_color(self):
         """
         Finds the average skin color for each of the 3 color channels and returns the average as a tuple
         """
 
         # Filter out the blue colors
-        self.filtered_source_skin[(self.filtered_source_skin[:,:,2]>self.filtered_source_skin[:,:,0]) & (self.filtered_source_skin[:,:,2]>self.filtered_source_skin[:,:,1])] = 0
+        #blue2 = np.where(np.any(self.filtered_source_skin[:,:,2] > self.filtered_source_skin[:,:,0] and self.filtered_source_skin[:,:,2] > self.filtered_source_skin[:,:,1]))
+        #plt.imshow(blue2,cmap="gray")
+        blue = (self.filtered_source_skin[:,:,2]>self.filtered_source_skin[:,:,0]) & (self.filtered_source_skin[:,:,2]>self.filtered_source_skin[:,:,1])
+        self.filtered_source_skin[blue] = 0
         
         
-        fig,axs = plt.subplots(1,1,figsize=(9,9))
-        axs.imshow(self.filtered_source_skin)
+        fig,axs = plt.subplots(1,3,figsize=(9,9))
+        axs[0].imshow(self.filtered_source_skin)
+        axs[1].imshow(self.filtered_skin)
+        axs[2].imshow(blue,cmap="gray")
         plt.show()
-        plt.savefig("filtered_skin.png")
 
         #Calculate the area of the skin
         h,b = self.mask_source.shape
         total_pixel = h*b
-        total_pixel_skin = total_pixel - np.sum(self.mask_source)
-      
+        total_pixel_skin = total_pixel - np.sum(self.mask_source) - np.sum(blue)
+        print("Blue: ",np.sum(blue))
         # Finds the average skin color for each channel
         avg_r = np.sum(self.filtered_source_skin[:,:,0])/total_pixel_skin
         avg_g = np.sum(self.filtered_source_skin[:,:,1])/total_pixel_skin
@@ -293,10 +291,10 @@ def main():
 
     print("\nColor feature \n")
   
-    lesion = Lesion("PAT_599_1140_399")
+    lesion = Lesion("PAT_20_30_44")
     lesion.resize_center()
     lesion.apply_mask_to_img()
-    print(lesion.average_skin_color())
+    print(lesion.get_average_skin_color())
     
     
 
