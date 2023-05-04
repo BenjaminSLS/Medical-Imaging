@@ -1,10 +1,13 @@
+import os
 from matplotlib import pyplot as plt
 import numpy as np
 from numpy import int64
-from skimage import morphology
+from skimage import morphology, color
 from scipy.ndimage import rotate
 from skimage.segmentation import slic,mark_boundaries
 from skimage import feature
+from skimage.measure import regionprops
+import pandas as pd 
 
 imagesPath = "../data/images/images/"
 
@@ -28,13 +31,13 @@ class Lesion:
     def __init__(self, image_path) -> None:
         image_name_split = image_path.split("_")
         self.lesion_id = image_name_split[1]
-        self.mask_path = "../segmentation/masks/" + image_path + "_mask.npy"
-        self.image_path = "../data/images/images/" + image_path + ".png"
+        self.mask_path = "./segmentation/masks/" + image_path + "_mask.npy"
+        self.image_path = "./data/images/images/" + image_path + ".png"
         
         try:
             self.mask = np.load(self.mask_path)
             self.mask[self.mask > 0] = 1
-            self.image = plt.imread(self.image_path)
+            self.image = plt.imread(self.image_path) # Returns a float from 0 to 1
         except:
             print("Could not load image or mask")
             return None
@@ -180,54 +183,82 @@ class Lesion:
         #For resized images
         filtered_img = self.image.copy()
         filtered_img[self.mask==0] = [0,0,0,255]
+
         filtered_skin = self.image.copy()
         filtered_skin[self.mask==1] = [0,0,0,255]
 
         #For original images
         filtered_source_img = self.image_source.copy()
+        
         filtered_source_img[self.mask_source==0] = [0,0,0,255]
+        print(filtered_source_img.shape)
+
+
         filtered_source_skin = self.image_source.copy()
         filtered_source_skin[self.mask_source==1] = [0,0,0,255]
+       
 
+        print(filtered_source_skin.shape)
+
+
+        #Save all images
         self.filtered_source_img = filtered_source_img
         self.filtered_source_skin = filtered_source_skin
+        
         self.filtered_img = filtered_img
         self.filtered_skin = filtered_skin
 
-
-    def get_average_skin_color(self):
+    def get_skin_color_feature(self):
         """
-        Finds the average skin color for each of the 3 color channels and returns the average as a tuple
+        Finds the average skin color for each of the 3 color channels and returns the average as a tuple.
+        Function doesn't take blue colors into account, we deem the effect to be negligible.
         """
-
-        # Filter out the blue colors
-        #blue2 = np.where(np.any(self.filtered_source_skin[:,:,2] > self.filtered_source_skin[:,:,0] and self.filtered_source_skin[:,:,2] > self.filtered_source_skin[:,:,1]))
-        #plt.imshow(blue2,cmap="gray")
-        blue = (self.filtered_source_skin[:,:,2]>self.filtered_source_skin[:,:,0]) & (self.filtered_source_skin[:,:,2]>self.filtered_source_skin[:,:,1])
-        self.filtered_source_skin[blue] = 0
-        
-        
-        fig,axs = plt.subplots(1,3,figsize=(9,9))
-        axs[0].imshow(self.filtered_source_skin)
-        axs[1].imshow(self.filtered_skin)
-        axs[2].imshow(blue,cmap="gray")
-        plt.show()
-
-        #Calculate the area of the skin
+        # Finds the total number of pixels in the image
         h,b = self.mask_source.shape
         total_pixel = h*b
-        total_pixel_skin = total_pixel - np.sum(self.mask_source) - np.sum(blue)
-        print("Blue: ",np.sum(blue))
+        total_pixel_skin = total_pixel - np.sum(self.mask_source)
+        
         # Finds the average skin color for each channel
         avg_r = np.sum(self.filtered_source_skin[:,:,0])/total_pixel_skin
         avg_g = np.sum(self.filtered_source_skin[:,:,1])/total_pixel_skin
         avg_b = np.sum(self.filtered_source_skin[:,:,2])/total_pixel_skin
 
+        avg_col = np.asarray([[[avg_r,avg_g,avg_b,255]]])
+
+        # fig,axs = plt.subplots(1,3,figsize=(9,9))
+        # axs[0].imshow(self.filtered_source_skin)
+        # axs[1].imshow(self.filtered_skin)
+        # axs[2].imshow(avg_col)
+        # plt.show()
+        
         return (avg_r,avg_g,avg_b)
 
+    def rgb_to_hsv(self,r,g,b):
+        """"
+        Changes rgb color to hsv
+        """
+        max_ = max(r,g,b)
+        min_ = min(r,g,b)
+
+        diff = max_ - min_
+
+        if max_ == min_:
+            h = 0
+        elif max_ == r:
+            h = (60 * ((g-b)/diff) + 360) % 360
+        elif max_ == g:
+            h = (60 * ((b-r)/diff) + 120) % 360
+        elif max_ == b:
+            h = (60 * ((r-g)/diff) + 240) % 360
+        if max_ == 0:
+            s = 0
+        else:
+            s = (diff/max_)*100
+        v = max_*100
+        return h, s, v
         
 
-    def get_color_feature(self):
+    def get_lesion_color_feature(self):
         """
         Returns the color features of the lesion using SLIC
 
@@ -238,55 +269,88 @@ class Lesion:
         """
         # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3184884/ color extraction idea
         # https://biomedpharmajournal.org/vol12no1/melanoma-detection-in-dermoscopic-images-using-color-features/ another idea
-        # 
+ 
+        # Take out alpha channel (transparency)
+        filtered_img = self.filtered_img[:,:,:3]
 
-        filtered_img = self.filtered_img
         # Segments the image using SLIC
-        segments_slic = slic(filtered_img, n_segments=10, compactness=3, sigma=3,start_label=1)
-        feat_im = feature.multiscale_basic_features(
-            filtered_img,
-            channel_axis=2,
-            intensity = False, 
-            edges = True, 
-            texture = True,
-            sigma_min = 3,
-            sigma_max = 3
-            )
-        fig,axs = plt.subplots(3,3,figsize=(10,10))
-
-        for i,ax in enumerate(axs.ravel()):
-            ax.imshow(feat_im[:,:,i],cmap="gray")
-
+        segments_slic = slic(filtered_img, n_segments=250, compactness=20,start_label=1,sigma=3)
+        
+        segments_slic_color = color.label2rgb(segments_slic, filtered_img, kind='avg')
+        fig2,axs2 = plt.subplots(1,2,figsize=(10,10))
+        axs2[0].imshow(filtered_img)
+        axs2[1].imshow(segments_slic_color)
         plt.show()
-        plt.savefig("feature.png")
-        print("hej")
-        #NOT FINISHED
 
+        regions = regionprops(segments_slic,intensity_image=filtered_img)
+
+        mean_intensity = [region.mean_intensity for region in regions]
+
+        color_intensity = [mean for mean in mean_intensity if sum(mean) != 0]
+
+        color_mean_hsv = [self.rgb_to_hsv(col[0],col[1],col[2]) for col in color_intensity]
+
+        color_mean_hue = [hsv[0] for hsv in color_mean_hsv]
+        color_mean_sat = [hsv[1] for hsv in color_mean_hsv]
+        color_mean_val = [hsv[2] for hsv in color_mean_hsv]
+
+        hue_sd = np.std(np.array(color_mean_hue))
+        sat_sd = np.std(np.array(color_mean_sat))
+        val_sd = np.std(np.array(color_mean_val))
+
+        
+        q1 = np.quantile(color_mean_val, 0.25, interpolation='midpoint')
+        q3 = np.quantile(color_mean_val, 0.75, interpolation='midpoint')
+        iqr = q3 - q1
+
+        return hue_sd,sat_sd,val_sd,iqr
+    
     def __str__(self) -> str:
         return f'{self.path}'
 
+
+def load_lesions():
+    """
+    Loads all the lesions from the given path and returns a list of lesions
+    """
+    df = pd.read_csv("./data/metadata.csv")
+    lesions = []
+    count = 0
+    for file in os.listdir("./segmentation/masks"):
+        print(file)
+        patient_id = file.split("_mask")[0]
+        metadata = df.loc[df["img_id"] == patient_id+".png"]
+        #print(patient_id,metadata)
+        lesions.append(Lesion(patient_id))
+        count+=1
+        if count==10:
+            break
+    return lesions
+
 def main():
+    lesions = load_lesions()
+    print(len(lesions))
     #Circular lesion
  
     
-    lesion = Lesion("PAT_860_1641_998")
-    np.savetxt("before.txt",lesion.mask,fmt="%d")
-    lesion.resize_center(buffer=10)
-    np.savetxt("mask.txt",lesion.mask,fmt="%d")
-    print("Circle lesion \n")
-    print("Asymmetry: ",lesion.get_asymmetry_feature())
-    print("Asymmetry 2: ", lesion.get_rotation_asymmetry())
-    print("Compactness: ",lesion.get_compactness())
-    print("Image: ", lesion.image)
+    # lesion = Lesion("PAT_9_17_80")
+    # #np.savetxt("before.txt",lesion.mask,fmt="%d")
+    # lesion.resize_center(buffer=10)
+    # #np.savetxt("mask.txt",lesion.mask,fmt="%d")
+    # print("Circle lesion \n")
+    # print("Asymmetry: ",lesion.get_asymmetry_feature())
+    # print("Asymmetry 2: ", lesion.get_rotation_asymmetry())
+    # print("Compactness: ",lesion.get_compactness())
+    # print("Image: ", lesion.image)
 
-    #Oval lesion
-    print("\nOval lesion \n")
+    # #Oval lesion
+    # print("\nOval lesion \n")
 
-    lesion = Lesion("PAT_1257_887_828")
-    lesion.resize_center(buffer=10)
-    print("Asymmetry: ",lesion.get_asymmetry_feature())
-    print("Asymmetry 2: ", lesion.get_rotation_asymmetry())
-    print("Compactness: ",lesion.get_compactness())
+    # lesion = Lesion("PAT_1257_887_828")
+    # lesion.resize_center(buffer=10)
+    # print("Asymmetry: ",lesion.get_asymmetry_feature())
+    # print("Asymmetry 2: ", lesion.get_rotation_asymmetry())
+    # print("Compactness: ",lesion.get_compactness())
 
 
     print("\nColor feature \n")
@@ -294,33 +358,9 @@ def main():
     lesion = Lesion("PAT_20_30_44")
     lesion.resize_center()
     lesion.apply_mask_to_img()
-    print(lesion.get_average_skin_color())
+    print(lesion.get_skin_color_feature())
+    print(lesion.get_lesion_color_feature())
     
-    
-
-
-# TESTING FUNCTIONS DELETE AFTER
-
-def perfect_circle():
-    #Function that makes perfect circle as np.array
-    #Returns the circle as np.array
-    circle = np.zeros((1000,1000),dtype=int64)
-    for i in range(1000):
-        for j in range(1000):
-            if (i-50)**2+(j-50)**2 <= 50**2:
-                circle[i,j] = 1
-    return circle.astype(int64)
-
-def perfect_box():
-    #Function that makes perfect box as np.array
-    #Returns the box as np.array with 1's 
-    box = np.zeros((100,100),dtype=int64)
-    for i in range(1,98):
-        for j in range(1,98):
-            box[i,j] = 1
-    return box
-    
-  
 if __name__ == '__main__':
     main()
     

@@ -26,15 +26,27 @@
 
 -   Color
 
+# Hypothesis
+
+We think these attributes is the most important
+
+-   Smoking
+-   Age
+-   Skin_cancer_history
+-   Cancer_history
+-   Fitspatrick
+-   Grew
+-   Changed
+
 ## Dataset
 
 -   patient_id
     -   Unique identifier for each patient
 -   lesion_id
     -   Unique identifier for each lesion
--   smoke
+-   smoke (has affect)
     -   If the patient smokes
--   drink
+-   drink (has affect)
     -   If the patient drinks
 -   background_father
     -   The ethnicity of the patient's father
@@ -54,7 +66,7 @@
     -   Whether or not the patient has access to piped water
 -   has_sewage_system
     -   If the patient has a sewage system
--   fitspatrick
+-   Fitspatrick
     -   Skin color of the paitient
 -   region
     -   Which region the patient is from
