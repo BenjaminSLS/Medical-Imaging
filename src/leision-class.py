@@ -31,8 +31,8 @@ class Lesion:
     def __init__(self, image_path) -> None:
         image_name_split = image_path.split("_")
         self.lesion_id = image_name_split[1]
-        self.mask_path = "./segmentation/masks/" + image_path + "_mask.npy"
-        self.image_path = "./data/images/images/" + image_path + ".png"
+        self.mask_path = "../segmentation/masks/" + image_path + "_mask.npy"
+        self.image_path = "../data/images/images/" + image_path + ".png"
         
         try:
             self.mask = np.load(self.mask_path)
@@ -313,23 +313,25 @@ def load_lesions():
     """
     Loads all the lesions from the given path and returns a list of lesions
     """
-    df = pd.read_csv("./data/metadata.csv")
+    df = pd.read_csv("../data/metadata.csv")
+    print(df)
     lesions = []
     count = 0
-    for file in os.listdir("./segmentation/masks"):
+    for file in os.listdir("../segmentation/masks"):
         print(file)
         patient_id = file.split("_mask")[0]
+        print(patient_id)
         metadata = df.loc[df["img_id"] == patient_id+".png"]
         #print(patient_id,metadata)
-        lesions.append(Lesion(patient_id))
+        lesions.append([Lesion(patient_id),metadata])
         count+=1
         if count==10:
             break
     return lesions
 
 def main():
-    lesions = load_lesions()
-    print(len(lesions))
+    #lesions = load_lesions()
+    #print(len(lesions))
     #Circular lesion
  
     
@@ -353,13 +355,14 @@ def main():
     # print("Compactness: ",lesion.get_compactness())
 
 
-    print("\nColor feature \n")
+    # print("\nColor feature \n")
   
-    lesion = Lesion("PAT_20_30_44")
-    lesion.resize_center()
-    lesion.apply_mask_to_img()
-    print(lesion.get_skin_color_feature())
-    print(lesion.get_lesion_color_feature())
+    # lesion = Lesion("PAT_20_30_44")
+    # lesion.resize_center()
+    # lesion.apply_mask_to_img()
+    # print(lesion.get_skin_color_feature())
+    # print(lesion.get_lesion_color_feature())
+    print(load_lesions())
     
 if __name__ == '__main__':
     main()
