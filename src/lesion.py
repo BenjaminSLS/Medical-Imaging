@@ -88,7 +88,6 @@ class Lesion:
         # features = features[columns]
         
         
-        print(metadata)
 
         df = pd.DataFrame.from_records([metadata])
         return (df,self.isCancer()) 
@@ -220,11 +219,9 @@ class Lesion:
         # Erodes the mask with the disk brush
         mask_eroded = morphology.binary_erosion(mask, struct_el)
         
-        np.savetxt("mask_eroded.txt",mask_eroded,fmt="%d")
-
         # Finds the size of the perimeter by subtracting the eroded mask from the original mask
         perimeter = np.sum(mask - mask_eroded)
-        print(f'Perimeter {perimeter}')
+       
     
         return perimeter
     
@@ -324,7 +321,7 @@ class Lesion:
         # https://biomedpharmajournal.org/vol12no1/melanoma-detection-in-dermoscopic-images-using-color-features/ another idea
  
         # Take out alpha channel (transparency)
-        print(self.filtered_img)
+        
         filtered_img = self.filtered_img.copy()[:,:,:3]
 
         # Segments the image using SLIC
