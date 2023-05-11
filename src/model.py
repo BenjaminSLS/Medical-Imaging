@@ -25,7 +25,7 @@ def loading_bar(counter, total, length=50):
     if counter == total:
         print('\n')
 
-def load_lesions(max_count=30):
+def load_lesions(max_count=1000):
     """
     Loads all the lesions from the given path and returns a list of lesions
     """
@@ -137,7 +137,7 @@ def train_model(X_train,y_train,X_test,y_test):
     n = 5
 
     acurracy_scores = []
-    for n in range(2,10):
+    for n in range(2,100):
         knn = KNeighborsClassifier(n_neighbors=n)
         knn.fit(X_train,y_train)
         y_pred = knn.predict(X_test)
@@ -147,15 +147,15 @@ def train_model(X_train,y_train,X_test,y_test):
     max_accuraccy = max(acurracy_scores)
     max_accuraccy_index = acurracy_scores.index(max_accuraccy)
 
-    plt.plot(range(2,10),acurracy_scores)
+    plt.plot(range(2,100),acurracy_scores)
     
     #Add line and dot for max accuracy
     plt.plot(max_accuraccy_index+2,max_accuraccy,'ro')
     line = [max_accuraccy,max_accuraccy-(10+(max_accuraccy % 10))]
     line_index = [max_accuraccy_index+2 for _ in range(len(line))]
-    plt.plot(line_index,line,linestyle="dashed",color="black")
+    #plt.plot(line_index,line,linestyle="dashed",color="black")
     #plt.text(max_accuraccy_index+2,line_index[1]-5,s="Maximum test accurraccy",fontsize=20)
-    plt.annotate('Maximum test accuracy', xy=(max_accuraccy_index+2, line[1]), xytext=(max_accuraccy_index+2, line[1]-1.5), fontsize=16)
+    plt.annotate(f'Maximum test accuracy\n{round(max_accuraccy,2)}% with K = {max_accuraccy_index+2}', xy=(max_accuraccy_index+2, max_accuraccy), xytext=(max_accuraccy_index+22, max_accuraccy-5), fontsize=10, arrowprops=dict(facecolor='black', shrink=0.05))
     plt.ylabel("Accuracy score")
     plt.xlabel("K-nearest neighbors")
     plt.title("Accuracy score for different K-nearest neighbors")
