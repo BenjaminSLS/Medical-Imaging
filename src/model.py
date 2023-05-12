@@ -8,6 +8,10 @@ from sklearn.preprocessing import OneHotEncoder
 from sklearn.metrics import accuracy_score
 from sklearn.feature_selection import mutual_info_classif, SelectKBest
 import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn import neighbors, datasets
+from matplotlib.colors import ListedColormap
+import numpy as np
 
 lesions = []
 
@@ -25,7 +29,7 @@ def loading_bar(counter, total, length=50):
     if counter == total:
         print('\n')
 
-def load_lesions(max_count=1000):
+def load_lesions(max_count=30):
     """
     Loads all the lesions from the given path and returns a list of lesions
     """
@@ -104,7 +108,7 @@ def ohc(dataframe) :
                 "itch","grew","hurt","changed","bleed","elevation"]
 
     drop_features = ["patient_id","lesion_id","img_id","gender","region","diagnostic","background_father","background_mother","biopsed","age"]
-                        
+
     drop_features.extend(features)
     
     dummies = pd.get_dummies(dataframe,columns=features,dummy_na=True)
@@ -137,7 +141,7 @@ def train_model(X_train,y_train,X_test,y_test):
     n = 5
 
     acurracy_scores = []
-    for n in range(2,100):
+    for n in range(2,10):
         knn = KNeighborsClassifier(n_neighbors=n)
         knn.fit(X_train,y_train)
         y_pred = knn.predict(X_test)
@@ -147,15 +151,15 @@ def train_model(X_train,y_train,X_test,y_test):
     max_accuraccy = max(acurracy_scores)
     max_accuraccy_index = acurracy_scores.index(max_accuraccy)
 
-    plt.plot(range(2,100),acurracy_scores)
+    plt.plot(range(2,10),acurracy_scores)
     
     #Add line and dot for max accuracy
     plt.plot(max_accuraccy_index+2,max_accuraccy,'ro')
     line = [max_accuraccy,max_accuraccy-(10+(max_accuraccy % 10))]
     line_index = [max_accuraccy_index+2 for _ in range(len(line))]
-    #plt.plot(line_index,line,linestyle="dashed",color="black")
+    plt.plot(line_index,line,linestyle="dashed",color="black")
     #plt.text(max_accuraccy_index+2,line_index[1]-5,s="Maximum test accurraccy",fontsize=20)
-    plt.annotate(f'Maximum test accuracy\n{round(max_accuraccy,2)}% with K = {max_accuraccy_index+2}', xy=(max_accuraccy_index+2, max_accuraccy), xytext=(max_accuraccy_index+22, max_accuraccy-5), fontsize=10, arrowprops=dict(facecolor='black', shrink=0.05))
+    plt.annotate('Maximum test accuracy', xy=(max_accuraccy_index+2, line[1]), xytext=(max_accuraccy_index+2, line[1]-1.5), fontsize=16)
     plt.ylabel("Accuracy score")
     plt.xlabel("K-nearest neighbors")
     plt.title("Accuracy score for different K-nearest neighbors")
@@ -175,7 +179,33 @@ def feature_selection(X_train, y_train, k):
     for result in zip(features,scores):
         print(result)
     return scores, selector
+
+def knn_plot(X_train,y_train,X_test,y_test):
+    """
+    Function to make a knn plot
+    Saves as a .png file in the main folder.
+    #https://scikit-learn.org/stable/auto_examples/neighbors/plot_classification.html
+    """
+    k = 7
+    clf = KNeighborsClassifier(n_neighbors=k,weights="uniform")
+    clf.fit(X_train,y_train)
+
+    cmap = ListedColormap(["red","blue"])
+    x_min,xmax = X[:,0].min()-1,X[:,0].max()+1
+    y_min,ymax = X[:,1].min()-1,X[:,1].max()+1
+
+    xx,yy=np.meshgrid(np.arange(x_min,x_max,0.02), np.arange(y_min,y_max,0.02))
+
+    Z=clf.predict(np.c_[xx.ravel(),yy.ravel()])
+    Z=Z.reshape(xx.shape)
+
+    plt.figure()    
+    plt.contour(x=X[:,0],y=X[:,1])
     
+
+
+    return None
+
 if __name__ == "__main__":
     load_lesions()
     X,y = prepare_data()

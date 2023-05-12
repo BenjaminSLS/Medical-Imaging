@@ -98,3 +98,5 @@ We think these attributes is the most important
     -   The id of the image
 -   bio
     psed
+##Presentation 
+We need to add some visualization how the KNN draws the regression path for different values of K.(https://towardsdatascience.com/k-nearest-neighbors-94395f445221 )
