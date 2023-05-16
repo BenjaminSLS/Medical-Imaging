@@ -1,5 +1,4 @@
 import os
-
 import pandas as pd
 from lesion import Lesion
 from sklearn.model_selection import train_test_split
@@ -12,9 +11,7 @@ import seaborn as sns
 from sklearn import neighbors, datasets
 from matplotlib.colors import ListedColormap
 import numpy as np
-
-lesions = []
-
+from sklearn.metrics import confusion_matrix
 
 # Questions:
 # 1. Correlation matrix
@@ -29,17 +26,16 @@ def loading_bar(counter, total, length=50):
     if counter == total:
         print('\n')
 
-def load_lesions(max_count=30):
+def load_lesions(max_count=300):
     """
     Loads all the lesions from the given path and returns a list of lesions
     """
     print("Loading lesions...")
     df = pd.read_csv("../data/metadata.csv")
-    # print("DATAFRAME: \n")
-    # print(df)
-    # print("\n"*5)
 
     #blobs = []
+    lesions = []
+    lesions_not_biopsied = []
 
     counter = 0
 
@@ -55,6 +51,11 @@ def load_lesions(max_count=30):
         # if count > 1:
         #     blobs.append(file)
         #     pass
+            #Code to remove blobs   
+        # for blob in blobs:
+        #     os.remove("../segmentation/masks/"+blob)
+        #     print(blob)  
+
         if counter % 4 == 0:
             loading_bar(counter,max_count)
  
@@ -62,61 +63,88 @@ def load_lesions(max_count=30):
         metadata = df.loc[df["img_id"] == patient_id+".png"]
         #print(patient_id,metadata)
         lesion = Lesion(patient_id,metadata)
+        biopsied = metadata["biopsed"].values[0]
         lesion.resize_center()
         lesion.apply_mask_to_img()
-        lesions.append(lesion)
-        
+
+        if biopsied:
+            lesions.append(lesion)
+            lesions_not_biopsied.append(lesion) 
+        else:
+            lesions_not_biopsied.append(lesion)
+   
         counter += 1
 
         if counter == max_count:
-            return lesions
-        
-    #Code to remove blobs   
-    # for blob in blobs:
-    #     os.remove("../segmentation/masks/"+blob)
-    #     print(blob)  
+            return lesions,lesions_not_biopsied
 
-
-def prepare_data():
+def make_dataframe(lesions,lesions_not_biopsied):
     print("Preparing data...")
     loaded_counter = 0 
     full_df = pd.DataFrame()
     cancer_series = pd.Series([])
-    
+
     for idx,lesion in enumerate(lesions):
         data = lesion.prepare_data()
         full_df = pd.concat([full_df,data[0]])
         cancer_series = pd.concat([cancer_series,pd.Series([data[1]])])
         if idx %2 == 0:
-            loading_bar(loaded_counter,len(lesions))
+            loading_bar(loaded_counter,len(lesions_not_biopsied)+len(lesions))
         loaded_counter += 1
+
     X = full_df
     y = cancer_series
 
-    X = ohc(full_df)
+    ohc_features = ["has_piped_water","has_sewage_system", 
+                "smoke", "drink","pesticide","skin_cancer_history","cancer_history",
+                "itch","grew","hurt","changed","bleed","elevation"]
+    drop_features = ["patient_id","lesion_id","img_id","gender","region","diagnostic","background_father","background_mother","biopsed","age"]
+    X = ohc(full_df,ohc_features,drop_features)
     X.to_csv("ohc.csv")
+    
+    full_df = pd.DataFrame()
+    cancer_series = pd.Series([])
 
-    return X,y
+    for idx, lesion in enumerate(lesions_not_biopsied):
+        data = lesion.prepare_data()
+        full_df = pd.concat([full_df,data[0]])
+        cancer_series = pd.concat([cancer_series,pd.Series([data[1]])])
+        if idx %2 == 0:
+            loading_bar(loaded_counter,len(lesions_not_biopsied)+len(lesions))
+        loaded_counter += 1
 
-def ohc(dataframe) :
+    X_not_biopsied = full_df
+    y_not_biopsied = cancer_series
+    ohc_features = ["itch","grew","hurt","changed","bleed","elevation"]
+    drop_features = ["patient_id","lesion_id","img_id","gender","region","diagnostic",
+                     "background_father","background_mother","biopsed","age","pesticide","skin_cancer_history", 
+                "smoke", "drink","has_piped_water","cancer_history","has_sewage_system","fitspatrick","diameter_1","diameter_2"]
+
+    X_not_biopsied = ohc(full_df,ohc_features,drop_features)
+    X_not_biopsied.to_csv("ohc_not_biopsied.csv")
+
+    return X,y,X_not_biopsied,y_not_biopsied
+
+def ohc(dataframe,ohc_features=[],drop_features=[]) :
     """
     One hot encodes the dataframe and returns the encoded dataframe
+    Specificy which columns to one hot encode and which to drop with lists.
     """
     print("One hot encoding...")
-    features = ["has_piped_water","has_sewage_system","diameter_1","diameter_2", 
-                "smoke", "drink","pesticide","skin_cancer_history","cancer_history","fitspatrick",
-                "itch","grew","hurt","changed","bleed","elevation"]
-
-    drop_features = ["patient_id","lesion_id","img_id","gender","region","diagnostic","background_father","background_mother","biopsed","age"]
-
-    drop_features.extend(features)
+    drop_features.extend(ohc_features)
     
-    dummies = pd.get_dummies(dataframe,columns=features,dummy_na=True)
+    dummies = pd.get_dummies(dataframe,columns=ohc_features,dummy_na=True)
     #print("Dummy: ",dummies)
     
     dataframe = pd.concat([dataframe,dummies],axis=1)
     dataframe = dataframe.drop(drop_features,axis=1)
 
+    for column in dataframe.columns:
+        if "_nan" in column:
+            dataframe = dataframe.drop(column,axis=1)
+        elif "UNK" in column:
+            dataframe = dataframe.drop(column,axis=1)
+    dataframe = dataframe.iloc[:,1:]
     return dataframe
 
 def train_test_validate_split(X,y):
@@ -129,7 +157,7 @@ def train_test_validate_split(X,y):
   
     X_test_train, X_test_test, y_test_train, y_test_test = train_test_split(X_test, y_test, test_size=0.5, random_state=42, shuffle=True, stratify=y_test)
   
-    return X_train, y_train , X_test_train, X_test_test, y_test_train, y_test_test
+    return X_train, y_train , X_test_train, y_test_train, X_test_test, y_test_test
     
 def train_model(X_train,y_train,X_test,y_test):
     """
@@ -137,11 +165,10 @@ def train_model(X_train,y_train,X_test,y_test):
     """
 
 
-    # Build a k-NN classifier with 5 neighbors: knn
-    n = 5
+    # Build a k-NN classifier and find the optimal number of neighbors
 
     acurracy_scores = []
-    for n in range(2,10):
+    for n in range(2,50):
         knn = KNeighborsClassifier(n_neighbors=n)
         knn.fit(X_train,y_train)
         y_pred = knn.predict(X_test)
@@ -151,7 +178,7 @@ def train_model(X_train,y_train,X_test,y_test):
     max_accuraccy = max(acurracy_scores)
     max_accuraccy_index = acurracy_scores.index(max_accuraccy)
 
-    plt.plot(range(2,10),acurracy_scores)
+    plt.plot(range(2,50),acurracy_scores)
     
     #Add line and dot for max accuracy
     plt.plot(max_accuraccy_index+2,max_accuraccy,'ro')
@@ -166,7 +193,7 @@ def train_model(X_train,y_train,X_test,y_test):
     plt.grid()
     plt.savefig("knn.png",dpi=400)
         
-    pass
+    return max_accuraccy_index+2
 
 def feature_selection(X_train, y_train, k):
     """"
@@ -180,35 +207,52 @@ def feature_selection(X_train, y_train, k):
         print(result)
     return scores, selector
 
-def knn_plot(X_train,y_train,X_test,y_test):
+def knn_plot(X_train,y_train,X_test,y_test,k):
     """
     Function to make a knn plot
     Saves as a .png file in the main folder.
-    #https://scikit-learn.org/stable/auto_examples/neighbors/plot_classification.html
     """
-    k = 7
-    clf = KNeighborsClassifier(n_neighbors=k,weights="uniform")
-    clf.fit(X_train,y_train)
+    print("Making knn plot...")
+    # Create a KNN classifier object
+    knn = KNeighborsClassifier(n_neighbors=k)
 
-    cmap = ListedColormap(["red","blue"])
-    x_min,xmax = X[:,0].min()-1,X[:,0].max()+1
-    y_min,ymax = X[:,1].min()-1,X[:,1].max()+1
+    # Fit the classifier to the training data
+    knn.fit(X_train, y_train)
 
-    xx,yy=np.meshgrid(np.arange(x_min,x_max,0.02), np.arange(y_min,y_max,0.02))
+    # Define the classes
+    classes = np.unique(y_train)
 
-    Z=clf.predict(np.c_[xx.ravel(),yy.ravel()])
-    Z=Z.reshape(xx.shape)
+    # Predict the labels for the test data
+    y_pred = knn.predict(X_test)
 
-    plt.figure()    
-    plt.contour(x=X[:,0],y=X[:,1])
-    
+    # Generate the confusion matrix
+    cm = confusion_matrix(y_test, y_pred)
 
-
+    # Plot the confusion matrix
+    plt.imshow(cm, cmap=plt.cm.Blues)
+    plt.title('Confusion Matrix')
+    plt.colorbar()
+    plt.xticks(np.arange(len(classes)), classes)
+    plt.yticks(np.arange(len(classes)), classes)
+    plt.xlabel('Predicted Label')
+    plt.ylabel('True Label')
+    plt.show()
     return None
 
 if __name__ == "__main__":
-    load_lesions()
-    X,y = prepare_data()
-    X_train, y_train , X_test_train, X_test_test, y_test_train, y_test_test = train_test_validate_split(X,y)
-    train_model(X_train,y_train,X_test_test,y_test_test)
-    score,selector = feature_selection(X_train,y_train,5)
+    lesions,lesions_not_biopsied = load_lesions()
+    X,y,X_not_biopsied,y_not_biopsied = make_dataframe(lesions,lesions_not_biopsied)
+
+    print(X)
+    print(y)
+
+    #X_train, y_train , X_test_train, y_test_train, X_test_test, y_test_test = train_test_validate_split(X,y)
+    #data = [X_train, y_train , X_test_train, y_test_train, X_test_test, y_test_test]
+
+    X_train, y_train , X_test_train, y_test_train, X_test_test, y_test_test = train_test_validate_split(X_not_biopsied,y_not_biopsied)
+    non_biopsied_data = [X_train, y_train , X_test_train, y_test_train, X_test_test, y_test_test]
+
+    #k_biopsied = train_model(data[0],data[1],data[2],data[3])
+    k_non_biopsied = train_model(non_biopsied_data[0],non_biopsied_data[1],non_biopsied_data[2],non_biopsied_data[3])
+    #score,selector = feature_selection(X_train,y_train,5)
+    knn_plot(non_biopsied_data[0],non_biopsied_data[1],non_biopsied_data[2],non_biopsied_data[3],k_non_biopsied)
