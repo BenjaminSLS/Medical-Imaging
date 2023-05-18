@@ -12,6 +12,7 @@ import pandas as pd
 from scipy.ndimage.measurements import label
 import time
 
+
 imagesPath = "../data/images/images/"
 
 class Lesion:
@@ -64,9 +65,8 @@ class Lesion:
         """
         Prepare data for training
         """
-        
-        
-        features = self.metadata
+        self.resize_center()
+        self.apply_mask_to_img()
         
         columns = ["patient_id","lesion_id","smoke","drink","background_father","background_mother","age","pesticide","gender","skin_cancer_history","cancer_history","has_piped_water","has_sewage_system","fitspatrick","region","diameter_1","diameter_2","diagnostic","itch","grew","hurt","changed","bleed","elevation","img_id","biopsed"]
 
@@ -359,44 +359,21 @@ class Lesion:
            
     def __str__(self) -> str:
         return f'{self.lesion_id}'
-
-
-def main():
-    pass
-    #lesions = load_lesions()
-    #print(len(lesions))
-    #Circular lesion
- 
     
-    # lesion = Lesion("PAT_9_17_80")
-    # #np.savetxt("before.txt",lesion.mask,fmt="%d")
-    # lesion.resize_center(buffer=10)
-    # #np.savetxt("mask.txt",lesion.mask,fmt="%d")
-    # print("Circle lesion \n")
-    # print("Asymmetry: ",lesion.get_asymmetry_feature())
-    # print("Asymmetry 2: ", lesion.get_rotation_asymmetry())
-    # print("Compactness: ",lesion.get_compactness())
-    # print("Image: ", lesion.image)
-
-    # #Oval lesion
-    # print("\nOval lesion \n")
-
-    # lesion = Lesion("PAT_1257_887_828")
-    # lesion.resize_center(buffer=10)
-    # print("Asymmetry: ",lesion.get_asymmetry_feature())
-    # print("Asymmetry 2: ", lesion.get_rotation_asymmetry())
-    # print("Compactness: ",lesion.get_compactness())
+    def __del__(self):
+        self.lesion_id = None
+        self.mask_source  = None
+        self.image_source = None
+        self.mask = None
+        self.top  = None
+        self.bottom = None
+        self.left = None
+        self.right  = None
+        self.image  = None
+        self.image_path = None
+        self.mask_path = None
+        self.filtered_img = None
+        self.filtered_skin = None
+        self.metadata = None
 
 
-    # print("\nColor feature \n")
-  
-    # lesion = Lesion("PAT_20_30_44")
-    # lesion.resize_center()
-    # lesion.apply_mask_to_img()
-    # print(lesion.get_skin_color_feature())
-    # print(lesion.get_lesion_color_feature())
-    
-
-if __name__ == '__main__':
-    main()
-    

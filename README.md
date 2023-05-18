@@ -2,6 +2,13 @@
 
 # Project Status
 
+**To do**
+
+-   Change False/True encoding to a single column
+-   Make sure rows with UNK values are removed.
+-   Make sure drop features removes but true and false column if not possible to change the encoding.
+-   Somehow standardise confusion matrix based on number of cancerous and non-cancerous lesions in our data.
+
 **Code**
 
 -   [x] Compactness
@@ -98,5 +105,5 @@ We think these attributes is the most important
     -   The id of the image
 -   bio
     psed
-##Presentation 
-We need to add some visualization how the KNN draws the regression path for different values of K.(https://towardsdatascience.com/k-nearest-neighbors-94395f445221 )
+    ##Presentation
+    We need to add some visualization how the KNN draws the regression path for different values of K.(https://towardsdatascience.com/k-nearest-neighbors-94395f445221 )
