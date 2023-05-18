@@ -153,12 +153,16 @@ def train_test_validate_split(X,y):
     """
     print("Splitting data...")
 
+
+    # 80/20 split
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, shuffle=True, stratify=y)
   
+    # 50/50 split of the 20% of the test data
     X_test_train, X_test_test, y_test_train, y_test_test = train_test_split(X_test, y_test, test_size=0.5, random_state=42, shuffle=True, stratify=y_test)
-  
-    return X_train, y_train , X_test_train, y_test_train, X_test_test, y_test_test
     
+    return X_train, y_train, X_test, y_test, X_test_train, y_test_train # Delete and uncomment below 
+    # return X_train, y_train , X_test_train, y_test_train, X_test_test, y_test_test
+
 def train_model(X_train,y_train,X_test,y_test):
     """
     Trains the model using the training data and returns the model.
@@ -228,6 +232,8 @@ def knn_plot(X_train,y_train,X_test,y_test,k):
     # Generate the confusion matrix
     cm = confusion_matrix(y_test, y_pred)
 
+    tn, fp, fn, tp = cm.ravel()
+    print("True negative:",tn,"\nFalse positive:",fp,"\nFalse negative:",fn,"\nTrue positive:",tp)
     # Plot the confusion matrix
     plt.imshow(cm, cmap=plt.cm.Blues)
     plt.title('Confusion Matrix')
