@@ -28,7 +28,7 @@ def loading_bar(counter, total, length=50):
     if counter == total:
         print('\n')
 
-def load_lesions(max_count=10):
+def load_lesions(max_count=100):
     """
     Loads all the lesions from the given path and returns a list of lesions
     """
@@ -132,10 +132,9 @@ def make_dataframe(lesions,lesions_not_biopsied):
         cancer_series = pd.concat([cancer_series,pd.Series(row[1])])
 
     X_not_biopsied = full_df
-    X_not_biopsied.replace({"True": 1, "False": 0}, inplace=True)
+    X_not_biopsied.replace({"True": 1, "False": 0,"UNK":-1}, inplace=True)
     y_not_biopsied = cancer_series
-
-
+    print(X_not_biopsied)
     full_full = X_not_biopsied
     full_full.to_csv("full_full.csv")
 
@@ -208,7 +207,7 @@ def train_model(X_train,y_train,X_test,y_test):
     # Build a k-NN classifier and find the optimal number of neighbors
 
     acurracy_scores = []
-    for n in range(2,50):
+    for n in range(1,50,2):
         knn = KNeighborsClassifier(n_neighbors=n)
         knn.fit(X_train,y_train)
         y_pred = knn.predict(X_test)
@@ -226,7 +225,7 @@ def train_model(X_train,y_train,X_test,y_test):
     #line_index = [max_accuraccy_index+2 for _ in range(len(line))]
     #plt.plot(line_index,line,linestyle="dashed",color="black")
     #plt.text(max_accuraccy_index+2,line_index[1]-5,s="Maximum test accurraccy",fontsize=20)
-    plt.annotate('Maximum test accuracy', xy=(max_accuraccy_index+2, max_accuraccy), xytext=(max_accuraccy_index+15, max_accuraccy-5), fontsize=16,arrowprops=dict(facecolor="black"))
+    plt.annotate(f'Maximum test accuracy\nK = {max_accuraccy_index+2}\n Accuracy: {round(max_accuraccy,2)} ', xy=(max_accuraccy_index+2, max_accuraccy), xytext=(max_accuraccy_index+15, max_accuraccy-5), fontsize=16,arrowprops=dict(facecolor="black"))
     plt.ylabel("Accuracy score")
     plt.xlabel("K-nearest neighbors")
     plt.title("Accuracy score for different K-nearest neighbors")
@@ -289,17 +288,16 @@ def knn_plot(X_train,y_train,X_test,y_test,k):
 if __name__ == "__main__":
     lesions,lesions_not_biopsied = load_lesions()
     X,y,X_not_biopsied,y_not_biopsied = make_dataframe(lesions,lesions_not_biopsied)
-    print("X:\n",X)
-    print("\n"*5,"X_not_biopsied: \n",X_not_biopsied)
-
+    #Biopsied data
     #X_train, y_train , X_test_train, y_test_train, X_test_test, y_test_test = train_test_validate_split(X,y)
     #data = [X_train, y_train , X_test_train, y_test_train, X_test_test, y_test_test]
 
-    # #X_train, y_train , X_test_train, y_test_train, X_test_test, y_test_test = train_test_validate_split(X_not_biopsied,y_not_biopsied)
-    # non_biopsied_data = [X_train, y_train , X_test_train, y_test_train, X_test_test, y_test_test]
+    #All data
+    X_train, y_train , X_test_train, y_test_train, X_test_test, y_test_test = train_test_validate_split(X_not_biopsied,y_not_biopsied)
+    non_biopsied_data = [X_train, y_train , X_test_train, y_test_train, X_test_test, y_test_test]
 
-    # #k_biopsied = train_model(data[0],data[1],data[2],data[3])
-    # k_non_biopsied = train_model(non_biopsied_data[0],non_biopsied_data[1],non_biopsied_data[2],non_biopsied_data[3])
+    #k_biopsied = train_model(data[0],data[1],data[2],data[3])
+    k_non_biopsied = train_model(non_biopsied_data[0],non_biopsied_data[1],non_biopsied_data[2],non_biopsied_data[3])
     # features_delete = feature_selection(X_train,y_train)
     # #non_biopsied_data[0] = non_biopsied_data[0].drop(features_delete,axis=1)
     # #non_biopsied_data[2] = non_biopsied_data[2].drop(features_delete,axis=1)
