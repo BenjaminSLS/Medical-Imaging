@@ -28,7 +28,7 @@ def loading_bar(counter, total, length=50):
     if counter == total:
         print('\n')
 
-def load_lesions(max_count=1000):
+def load_lesions(max_count=10):
     """
     Loads all the lesions from the given path and returns a list of lesions
     """
@@ -44,6 +44,9 @@ def load_lesions(max_count=1000):
     files = os.listdir("../segmentation/masks")
     max_length = len(files)
     for file in files:
+        
+
+        ## Code to remove images with multiple lesions ##
 
         # mask = np.load("../segmentation/masks/"+file)
         # mask[mask>0] = 1
@@ -64,11 +67,17 @@ def load_lesions(max_count=1000):
  
         patient_id = file.split("_mask")[0]
         metadata = df.loc[df["img_id"] == patient_id+".png"]
-        #print(patient_id,metadata)
+
+        #Replace map true/false to 1/0 and don't add lesions with UNK values. (NaN values removed in OHC part)
+       
+        # for column in metadata.columns:
+        #     if metadata[column].values[0] == "UNK":
+        #         pass
+        # print(metadata)
         lesion = Lesion(patient_id,metadata)
+
+        #Sort lesions by biopsied
         biopsied = metadata["biopsed"].values[0]
-        # lesion.resize_center()
-        # lesion.apply_mask_to_img()
 
         if biopsied:
             lesions.append(lesion)
@@ -83,7 +92,8 @@ def load_lesions(max_count=1000):
 
 def make_dataframe(lesions,lesions_not_biopsied):
     print("Preparing data...")
-    loaded_counter = 0 
+
+    # Only biopsied lesions
     full_df = pd.DataFrame()
     cancer_series = pd.Series([],dtype=bool)
 
@@ -100,8 +110,13 @@ def make_dataframe(lesions,lesions_not_biopsied):
         cancer_series = pd.concat([cancer_series,pd.Series(row[1])])
     
     X = full_df
+    X.replace({True: 1, False: 0}, inplace=True)
     y = cancer_series
 
+    
+
+
+    # All lesions (including non-biopsied)
     result_array = []
 
     full_df = pd.DataFrame()    
@@ -117,24 +132,24 @@ def make_dataframe(lesions,lesions_not_biopsied):
         cancer_series = pd.concat([cancer_series,pd.Series(row[1])])
 
     X_not_biopsied = full_df
+    X_not_biopsied.replace({"True": 1, "False": 0}, inplace=True)
     y_not_biopsied = cancer_series
 
 
     full_full = X_not_biopsied
     full_full.to_csv("full_full.csv")
-    ohc_features = ["has_piped_water","has_sewage_system", 
-                "smoke", "drink","pesticide","skin_cancer_history","cancer_history",
-                "itch","grew","hurt","changed","bleed","elevation"]
-    drop_features = ["patient_id","lesion_id","img_id","gender","region","diagnostic","background_father","background_mother","biopsed","age"]
+
+    #OHC
+    ohc_features = ["gender","region","background_father","background_mother"]
+    drop_features = ["patient_id","lesion_id","img_id","biopsed","diagnostic"]#"age"]
     X = ohc(full_df,ohc_features,drop_features)
     X.to_csv("ohc.csv")
     
-    ohc_features = ["itch","grew","hurt","changed","bleed","elevation"]
-    drop_features = ["patient_id","lesion_id","img_id","gender","region","diagnostic",
-                     "background_father","background_mother","biopsed","age","pesticide","skin_cancer_history", 
-                "smoke", "drink","has_piped_water","cancer_history","has_sewage_system","fitspatrick","diameter_1","diameter_2"]
+    ohc_features = ["gender","region", "background_father","background_mother"]
+    drop_features = ["patient_id","lesion_id","img_id","biopsed","pesticide","skin_cancer_history", 
+                "smoke", "drink","has_piped_water","cancer_history","has_sewage_system","fitspatrick","diameter_1","diameter_2","diagnostic"] #,"age"]
 
-    print("Counts (not biopsied): ",y_not_biopsied.value_counts())
+    #print("Counts (not biopsied): ",y_not_biopsied.value_counts())
 
     X_not_biopsied = ohc(full_df,ohc_features,drop_features)
     X_not_biopsied.to_csv("ohc_not_biopsied.csv")
@@ -274,19 +289,21 @@ def knn_plot(X_train,y_train,X_test,y_test,k):
 if __name__ == "__main__":
     lesions,lesions_not_biopsied = load_lesions()
     X,y,X_not_biopsied,y_not_biopsied = make_dataframe(lesions,lesions_not_biopsied)
+    print("X:\n",X)
+    print("\n"*5,"X_not_biopsied: \n",X_not_biopsied)
 
     #X_train, y_train , X_test_train, y_test_train, X_test_test, y_test_test = train_test_validate_split(X,y)
     #data = [X_train, y_train , X_test_train, y_test_train, X_test_test, y_test_test]
 
-    X_train, y_train , X_test_train, y_test_train, X_test_test, y_test_test = train_test_validate_split(X_not_biopsied,y_not_biopsied)
-    non_biopsied_data = [X_train, y_train , X_test_train, y_test_train, X_test_test, y_test_test]
+    # #X_train, y_train , X_test_train, y_test_train, X_test_test, y_test_test = train_test_validate_split(X_not_biopsied,y_not_biopsied)
+    # non_biopsied_data = [X_train, y_train , X_test_train, y_test_train, X_test_test, y_test_test]
 
-    #k_biopsied = train_model(data[0],data[1],data[2],data[3])
-    k_non_biopsied = train_model(non_biopsied_data[0],non_biopsied_data[1],non_biopsied_data[2],non_biopsied_data[3])
-    features_delete = feature_selection(X_train,y_train)
-    #non_biopsied_data[0] = non_biopsied_data[0].drop(features_delete,axis=1)
-    #non_biopsied_data[2] = non_biopsied_data[2].drop(features_delete,axis=1)
-    #non_biopsied_data[4] = non_biopsied_data[4].drop(features_delete,axis=1)
+    # #k_biopsied = train_model(data[0],data[1],data[2],data[3])
+    # k_non_biopsied = train_model(non_biopsied_data[0],non_biopsied_data[1],non_biopsied_data[2],non_biopsied_data[3])
+    # features_delete = feature_selection(X_train,y_train)
+    # #non_biopsied_data[0] = non_biopsied_data[0].drop(features_delete,axis=1)
+    # #non_biopsied_data[2] = non_biopsied_data[2].drop(features_delete,axis=1)
+    # #non_biopsied_data[4] = non_biopsied_data[4].drop(features_delete,axis=1)
 
-    k_non_biopsied_reduced = train_model(non_biopsied_data[0],non_biopsied_data[1],non_biopsied_data[4],non_biopsied_data[5])
-    knn_plot(non_biopsied_data[0],non_biopsied_data[1],non_biopsied_data[4],non_biopsied_data[5],k_non_biopsied)
+    # k_non_biopsied_reduced = train_model(non_biopsied_data[0],non_biopsied_data[1],non_biopsied_data[4],non_biopsied_data[5])
+    # knn_plot(non_biopsied_data[0],non_biopsied_data[1],non_biopsied_data[4],non_biopsied_data[5],k_non_biopsied)
