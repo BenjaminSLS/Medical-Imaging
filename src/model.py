@@ -13,7 +13,7 @@ import numpy as np
 from sklearn.metrics import confusion_matrix
 from multiprocessing.pool import ThreadPool as Pool
 import concurrent.futures
-
+import pickle
 
 def prepare_data_wrapper(class_instance):
     result = class_instance.prepare_data()
@@ -110,7 +110,7 @@ def make_dataframe(lesions,lesions_not_biopsied):
         cancer_series = pd.concat([cancer_series,pd.Series(row[1])])
     
     X = full_df
-    X.replace({True: 1, False: 0}, inplace=True)
+    X.replace({"True": 1, "False": 0,"UNK":0}, inplace=True)
     y = cancer_series
 
     
@@ -132,7 +132,7 @@ def make_dataframe(lesions,lesions_not_biopsied):
         cancer_series = pd.concat([cancer_series,pd.Series(row[1])])
 
     X_not_biopsied = full_df
-    X_not_biopsied.replace({"True": 1, "False": 0,"UNK":-1}, inplace=True)
+    X_not_biopsied.replace({"True": 1, "False": 0,"UNK":0}, inplace=True)
     y_not_biopsied = cancer_series
     print(X_not_biopsied)
     full_full = X_not_biopsied
@@ -179,6 +179,8 @@ def ohc(dataframe,ohc_features=[],drop_features=[]) :
             dataframe = dataframe.drop(column,axis=1)
         elif "UNK" in column:
             dataframe = dataframe.drop(column,axis=1)
+        elif column[-1]=="0":
+            dataframe = dataframe.drop(column,axis=1)
     dataframe = dataframe.iloc[:,1:]
     return dataframe
 
@@ -207,42 +209,45 @@ def train_model(X_train,y_train,X_test,y_test):
     # Build a k-NN classifier and find the optimal number of neighbors
 
     acurracy_scores = []
-    for n in range(1,50,2):
+    index_list = []
+    for n in range(1,30,2):
         knn = KNeighborsClassifier(n_neighbors=n)
         knn.fit(X_train,y_train)
         y_pred = knn.predict(X_test)
         acurracy_scores.append(accuracy_score(y_test,y_pred)*100)
+        index_list.append(n)
         print(f"Accuracy score with n= {n}: ", accuracy_score(y_test,y_pred)*100)
     
     max_accuraccy = max(acurracy_scores)
-    max_accuraccy_index = acurracy_scores.index(max_accuraccy)
+    max_accuraccy_index = index_list[acurracy_scores.index(max_accuraccy)]
 
-    plt.plot(range(2,50),acurracy_scores)
+    plt.plot(range(1,30,2),acurracy_scores)
     
     #Add line and dot for max accuracy
-    plt.plot(max_accuraccy_index+2,max_accuraccy,'ro')
+    plt.plot(max_accuraccy_index,max_accuraccy,'ro')
     #line = [max_accuraccy,max_accuraccy-(10+(max_accuraccy % 10))]
     #line_index = [max_accuraccy_index+2 for _ in range(len(line))]
     #plt.plot(line_index,line,linestyle="dashed",color="black")
     #plt.text(max_accuraccy_index+2,line_index[1]-5,s="Maximum test accurraccy",fontsize=20)
-    plt.annotate(f'Maximum test accuracy\nK = {max_accuraccy_index+2}\n Accuracy: {round(max_accuraccy,2)} ', xy=(max_accuraccy_index+2, max_accuraccy), xytext=(max_accuraccy_index+15, max_accuraccy-5), fontsize=16,arrowprops=dict(facecolor="black"))
+    plt.annotate(f'Maximum test accuracy\nK = {max_accuraccy_index}\n Accuracy: {round(max_accuraccy,2)} ', xy=(max_accuraccy_index, max_accuraccy), xytext=(max_accuraccy_index+15, max_accuraccy-5), fontsize=16,arrowprops=dict(facecolor="black"))
     plt.ylabel("Accuracy score")
     plt.xlabel("K-nearest neighbors")
     plt.title("Accuracy score for different K-nearest neighbors")
     plt.grid()
     plt.savefig("knn.png",dpi=400)
     
-    return max_accuraccy_index+2
+    return max_accuraccy_index
 
 def feature_selection(X_train, y_train):
     """"
     Selects the k best features using mutual information and returns the scores and the selector.
     """    
-    k = X_train.shape[1]
-    selector = SelectKBest(mutual_info_classif, k=k)
+    n = X_train.shape[1]
+    selector = SelectKBest(k=n)
     selector.fit(X_train, y_train)
     p_values = selector.pvalues_
     features = selector.feature_names_in_
+    print("p_values",p_values)
     features_delete = []
     for f,p in zip(features,p_values):
         if p < 0.05:
@@ -255,7 +260,7 @@ def knn_plot(X_train,y_train,X_test,y_test,k):
     Function to make a knn plot
     Saves as a .png file in the main folder.
     """
-    print("Making knn plot...")
+    print("Making knn plot... with k =",k)
     # Create a KNN classifier object
     knn = KNeighborsClassifier(n_neighbors=k)
 
@@ -267,6 +272,8 @@ def knn_plot(X_train,y_train,X_test,y_test,k):
 
     # Predict the labels for the test data
     y_pred = knn.predict(X_test)
+    #y_pred_proba = knn.predict_proba(X_test)
+    #print("probabilities of pictures not being cancerous:",y_pred_proba)
 
     # Generate the confusion matrix
     cm = confusion_matrix(y_test, y_pred)
@@ -285,23 +292,33 @@ def knn_plot(X_train,y_train,X_test,y_test,k):
     plt.savefig("confusionmatrix.png")
     return None
 
+def reduced_model(X_train,y_train,X_test,y_test,k):
+    print("\n"*5,"Reduced model:","\n"*5)
+    knn = KNeighborsClassifier(n_neighbors=k)
+    knn.fit(X_train,y_train)
+    y_pred = knn.predict(X_test)
+    filename = "groupXY_classifier.sav"
+    pickle.dump(knn, open(filename, 'wb'))
+    accuracy = accuracy_score(y_test,y_pred)
+    print("Accuracy score: ",accuracy)
+
+    return None
 if __name__ == "__main__":
     lesions,lesions_not_biopsied = load_lesions()
     X,y,X_not_biopsied,y_not_biopsied = make_dataframe(lesions,lesions_not_biopsied)
-    #Biopsied data
-    #X_train, y_train , X_test_train, y_test_train, X_test_test, y_test_test = train_test_validate_split(X,y)
-    #data = [X_train, y_train , X_test_train, y_test_train, X_test_test, y_test_test]
 
     #All data
     X_train, y_train , X_test_train, y_test_train, X_test_test, y_test_test = train_test_validate_split(X_not_biopsied,y_not_biopsied)
-    non_biopsied_data = [X_train, y_train , X_test_train, y_test_train, X_test_test, y_test_test]
+    data = [X_train, y_train , X_test_train, y_test_train, X_test_test, y_test_test]
 
-    #k_biopsied = train_model(data[0],data[1],data[2],data[3])
-    k_non_biopsied = train_model(non_biopsied_data[0],non_biopsied_data[1],non_biopsied_data[2],non_biopsied_data[3])
-    # features_delete = feature_selection(X_train,y_train)
-    # #non_biopsied_data[0] = non_biopsied_data[0].drop(features_delete,axis=1)
-    # #non_biopsied_data[2] = non_biopsied_data[2].drop(features_delete,axis=1)
-    # #non_biopsied_data[4] = non_biopsied_data[4].drop(features_delete,axis=1)
+    k = train_model(data[0],data[1],data[2],data[3])
+    features_delete = feature_selection(X_train,y_train)
+    print(features_delete)
+    data[0] = data[0].drop(features_delete,axis=1)
+    data[2] = data[2].drop(features_delete,axis=1)
+    data[4] = data[4].drop(features_delete,axis=1)
 
     # k_non_biopsied_reduced = train_model(non_biopsied_data[0],non_biopsied_data[1],non_biopsied_data[4],non_biopsied_data[5])
-    # knn_plot(non_biopsied_data[0],non_biopsied_data[1],non_biopsied_data[4],non_biopsied_data[5],k_non_biopsied)
+    knn_plot(data[0],data[1],data[2],data[3],k)
+    reduced_model(data[0],data[1],data[4],data[5],k)
+
