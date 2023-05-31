@@ -5,3 +5,5 @@ src/Hakon testing/images
 src/Hakon testing/images_manual_segmentation
 
 clean/
+
+__pycache__
