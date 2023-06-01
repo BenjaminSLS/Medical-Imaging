@@ -23,7 +23,7 @@ def extract_features(image, mask):
     hue_sd, sat_sd, val_sd = get_color(image)
     diagnostic = np.nan
     mask_area = mask.shape[0] * mask.shape[1]
-    return np.array([diagnostic, area / mask_area, perimeter / mask_area, compactness, rotation_asymmetry, asymmetry, hue_sd, sat_sd, val_sd])
+    return np.array([area / mask_area, perimeter / mask_area, compactness, rotation_asymmetry, asymmetry, hue_sd, sat_sd, val_sd])
 
 
 def resize(image, mask):
