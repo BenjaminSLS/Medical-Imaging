@@ -4,6 +4,10 @@
 
 If you only want to test the probability of single image/mask being cancerouos or healthy, import the `classify(image,mask)` function from `extractfeatures.py`
 
+### Manual Ratings
+The algorithms ratings of the lesions can be found in the `selected_images_features.csv`
+And the manual ones in `Annotations_manually.csv`
+
 ### Preparition of the images
 
 The images from the three folders should be put into a new folder called `images` in this folder.
