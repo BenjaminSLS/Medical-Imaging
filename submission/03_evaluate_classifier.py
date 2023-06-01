@@ -1,14 +1,13 @@
-import pickle  # for loading your trained classifier
-
-from extract_features import extract_features  # our feature extraction
+import pickle
 import lesion
+import model
 
 # The function that should classify new images.
 # The image and mask are the same size, and are already loaded using plt.imread
 
 
 # ATTENTION | METADATA
-#
+# We expect you to input metadata on your own as a pandas series
 
 
 def classify(img, mask, metadata=None):
@@ -18,7 +17,7 @@ def classify(img, mask, metadata=None):
     # Resize the image etc, if you did that during training
 
     # Extract features (the same ones that you used for training)
-    x = extract_features(img, mask)
+    x, _ = model.make_dataframe(lesion)
 
     # Load the trained classifier
     classifier = pickle.load(open('groupXY_classifier.sav', 'rb'))
