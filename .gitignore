@@ -1,9 +1,7 @@
 data/*
 data/
-!data/README.md
-src/Hakon testing/images
-src/Hakon testing/images_manual_segmentation
 
-clean/
 
 __pycache__
+
+.DS_Store
